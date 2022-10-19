@@ -1,5 +1,5 @@
-import { useMemo } from "react"
-import ReactDOM from 'react-dom'
+import { useMemo } from 'react';
+import ReactDOM from 'react-dom';
 
 export const ModalContainer = ({ children }) => {
   const containerElement = useMemo(
@@ -7,5 +7,5 @@ export const ModalContainer = ({ children }) => {
     []
   );
 
-  return ReactDOM.createPortal(children, containerElement)
-}
+  return ReactDOM.createPortal(children, containerElement);
+};

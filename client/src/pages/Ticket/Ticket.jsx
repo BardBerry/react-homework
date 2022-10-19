@@ -2,48 +2,55 @@ import React, { useState } from 'react';
 import styles from './styles.module.css';
 import returnImage from '../../assets/images/arrowBack.png';
 import dotsImage from '../../assets/images/dots.png';
-import Input from '../../components/Input/Input';
+import close from '../../assets/images/close.png';
 import Tag from '../../components/Tag/Tag';
 import Comment from '../../components/Comment/Comment';
 import Button from '../../components/Button/Button';
 import Popup from '../../components/Popup/Popup';
 import { useToggle } from '../../hooks/useToggle';
 import Modal from '../../components/Modal/Modal';
-import { database } from '../../assets/database';
 import { useEffect } from 'react';
-import { useParams } from 'react-router';
+import { useNavigate, useParams } from 'react-router';
 import { v4 as uuidv4 } from 'uuid';
 import { Link } from 'react-router-dom';
 import TaskForm from '../../components/TaskForm/TaskForm';
+import { useDispatch, useSelector } from 'react-redux';
+import { fetchCurrentTicket } from '../../redux/slices/CurrentTicketSlice';
+import { set } from '../../redux/slices/TagSelectorSlice';
+import { fetchTickets } from '../../redux/slices/TicketsSlice';
 
-export default function Ticket() {
+export default function Ticket({ modal }) {
   const { id } = useParams();
-  const { value, toggle } = useToggle(false);
-  const [ticketInfo, setTicketInfo] = useState();
+  const [popup, setPopup] = useState(false);
+  let [modalType, setModalType] = useState('');
+  const [edit, setEdit] = useState(false);
+
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
 
   useEffect(() => {
-    async function fetchData() {
-      const response = await fetch(`http://localhost:3030/${id}`, {
-        credentials: 'include',
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setTicketInfo(data);
-      }
+    dispatch(fetchCurrentTicket(id));
+  }, [id])
+
+  const currentTicket = useSelector((state) => state.currentTicket.currentTicket);
+  const tagsValues = useSelector((state) => state.tagsState);
+
+  useEffect(() => {
+    if (currentTicket?.tagsArray) {
+      dispatch(set(currentTicket.tagsArray));
     }
+  }, [currentTicket])
 
-    fetchData();
-  }, []);
-
-  let popupObj = useToggle(false);
-  let modalObj = useToggle(false);
-
-  let popup = popupObj.value;
-  let popupToggle = popupObj.toggle
-  let modal = modalObj.value;
-  let modalToggle = modalObj.toggle;
-
-  let [modalType, setModalType] = useState('');
+  useEffect(() => {
+    if (modal === true) {
+      setEdit(true);
+      setModalType('comment');
+    }
+    else {
+      setModalType('');
+      dispatch(fetchCurrentTicket(id));
+    }
+  }, [modal])
 
   function clickHandler(e) {
     switch (e.target.textContent) {
@@ -51,42 +58,95 @@ export default function Ticket() {
         setModalType('delete');
         break;
       default:
-        setModalType('create');
+        setEdit((value) => !value);
         break;
     }
-    modalToggle();
-    popupToggle();
+    setPopup((value) => !value);
+  }
+
+  async function deleteComment(commentId) {
+    const response = await fetch(`http://localhost:3030/comment/${id}`, {
+      method: 'put',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ commentId }),
+      credentials: 'include',
+    });
+
+    if (response.ok) {
+      dispatch(fetchCurrentTicket(id));
+    }
+  }
+
+  async function deleteTicket() {
+    const response = await fetch(`http://localhost:3030/${id}`, {
+      method: 'delete',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+    });
+
+    if (response.ok) {
+      dispatch(fetchTickets());
+    }
   }
 
   return (
     <div className={styles.container}>
-      {modalType !== 'create' && modal && <Modal text={'Удалить тикет?'}>
-        <Button text={'Да'} type={'confirm'} onClick={modalToggle} />
-        <Button text={'Нет'} type={'confirm'} onClick={modalToggle} />
-      </Modal>}
+      {modalType === 'delete' && (
+        <Modal text={'Удалить тикет?'} modal='modal2' noReset={true}>
+          <Link to={'/'}>
+            <Button text={'Да'} type={'confirm'} onClick={deleteTicket} />
+          </Link>
+          <Button text={'Нет'} type={'confirm'} onClick={() => setModalType('')} />
+        </Modal>
+      )}
+      {modalType === 'comment' && (
+        <Modal text={'Добавить комментарий'}>
+          <Link to={`/full/${id}`}>
+            <img src={close} alt="close" />
+          </Link>
+          <TaskForm
+            modalType={modalType}
+            id={id}
+          />
+        </Modal>
+      )}
       <div className={styles.return}>
-        <Link to='/'>
-          <img src={returnImage} alt="" />
+        <Link to="/">
+          <img src={returnImage} alt="close" />
         </Link>
         <p>Вернуться к задачам</p>
       </div>
       <div className={styles.taskType}>
-        <h2>{ticketInfo?.status}</h2>
+        <h2>{currentTicket?.status}</h2>
         <div className={styles.popup_container}>
-          <img src={dotsImage} alt="" onClick={popupToggle} />
-          {popup && <Popup onClick={popupToggle} clickHandler={clickHandler} />}
+          <img src={dotsImage} alt="" onClick={() => { setPopup((value) => !value) }} />
+          {popup && <Popup onClick={setPopup} clickHandler={clickHandler} />}
         </div>
       </div>
       <div className={styles.task_container}>
         <div className={styles.bottom_container}>
-          <TaskForm modalType={'ticket'} text={ticketInfo?.text} description={ticketInfo?.description} />
+          <TaskForm
+            modalType={'ticket'}
+            edit={edit}
+            id={id}
+            setEdit={setEdit}
+          />
           <div className={styles.tag_container}>
-            {ticketInfo?.tagsArray.map((el) => <Tag color={el} size="medium" key={uuidv4()} />)}
+            {Object.entries(tagsValues).filter((el) => Boolean(el[1])).map((el) => el[0])
+              .map((el) => (
+                <Tag color={el} size="medium" key={uuidv4()} edit={edit} />
+              ))}
           </div>
-          {ticketInfo?.comments.map((el) => <Comment author={el.author} text={el.text} key={uuidv4()} />)}
-          <Button text="добавить комментарий" type="commentAdd" />
+          {currentTicket?.comments && currentTicket?.comments.map((el) => (
+            <Comment author={el.author} text={el.text} key={uuidv4()} edit={edit} onClick={deleteComment} id={el.id} />
+          ))}
+          {edit && <Button text="добавить комментарий" type="commentAdd" onClick={() => { navigate(`/full/${id}/comment/create`) }} />}
         </div>
-        <Button text="Сохранить" type="save_small" />
+        {edit && <Button text="Сохранить" type="save_small" />}
       </div>
     </div>
   );

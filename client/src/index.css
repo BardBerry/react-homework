@@ -12,5 +12,6 @@ body {
 
 @font-face {
   font-family: 'YS Text';
-  src: local('YS Text'), url(./assets/fonts/ys_regular/ys_regular.ttf) format('truetype');
+  src: local('YS Text'),
+    url(./assets/fonts/ys_regular/ys_regular.ttf) format('truetype');
 }

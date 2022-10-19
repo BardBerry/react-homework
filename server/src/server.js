@@ -32,20 +32,64 @@ app.get('/:id', (req, res) => {
 });
 
 app.post('/', (req, res) => {
-  const { value } = req.body;
+  const { tagsValues } = req.body;
+  const { modalType } = req.body
   const { task, description } = req.body.values;
+
+
   const newTicket = {
     id: uuidv4(),
     text: task,
     description,
-    tagsArray: value,
-    status: 'Todo',
+    tagsArray: Object.entries(tagsValues).filter((el) => Boolean(el[1])).map((el) => el[0]),
+    status: modalType,
     comments: [],
   };
 
   try {
     database.tickets.push(newTicket);
-    res.json(database.tickets);
+    res.sendStatus(200);
+  } catch (error) {
+    res.sendStatus(404);
+  }
+});
+
+app.put('/:id', (req, res) => {
+  const { tagsValues } = req.body;
+  const { task, description } = req.body.values;
+
+  const newTicket = database.tickets.find((el) => el.id === req.params.id);
+  newTicket.text = task;
+  newTicket.description = description;
+  newTicket.tagsArray = Object.entries(tagsValues).filter((el) => Boolean(el[1])).map((el) => el[0]);
+
+  try {
+    res.sendStatus(200);
+  } catch (error) {
+    res.sendStatus(404);
+  }
+});
+
+app.post('/:id', (req, res) => {
+  const { name, comment } = req.body.values;
+
+  try {
+    const newTicket = database.tickets.find((el) => el.id === req.params.id);
+    newTicket.comments.push({author: name, text: comment, id: uuidv4()});
+    res.sendStatus(200);
+  } catch (error) {
+    res.sendStatus(404);
+  }
+});
+
+app.post('/drag/:id', (req, res) => {
+  const { status } = req.body;
+
+  const draggedTicket = database.tickets.find((el) => el.id === req.params.id);
+  draggedTicket.status = status;
+
+  try {
+    res.json(database);
   } catch (error) {
     res.sendStatus(404);
   }
@@ -55,7 +99,20 @@ app.delete('/:id', (req, res) => {
   const { id } = req.params;
 
   try {
-    database = database.tickets.filter((el) => el.id !== id);
+    database.tickets = database.tickets.filter((el) => el.id !== id);
+    res.sendStatus(200);
+  } catch (error) {
+    res.sendStatus(404);
+  }
+});
+
+app.put('/comment/:id', (req, res) => {
+  const { commentId } = req.body;
+
+  const newTicket = database.tickets.find((el) => el.id === req.params.id);
+  newTicket.comments =  newTicket.comments.filter((el) => el.id !== commentId);
+
+  try {
     res.sendStatus(200);
   } catch (error) {
     res.sendStatus(404);
